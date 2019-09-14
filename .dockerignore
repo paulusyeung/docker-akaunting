@@ -2,6 +2,8 @@
 .gitignore
 LICENSE
 README.md
-Changelog.md
-Makefile
 docker-compose.yml
+docker-compose.override.yml
+docker-compose.override.example.yml
+example.env
+.env

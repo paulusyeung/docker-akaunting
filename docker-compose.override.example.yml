@@ -1,0 +1,27 @@
+version: '3.7'
+
+services:
+  mysql:
+    networks:
+      - default
+
+  akaunting:
+    networks:
+      - default
+    volumes:
+      - ./assets/trustedproxy.php:/var/www/akaunting/config/trustedproxy.php:ro
+  
+  nginx:
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.port=80"
+      - "traefik.frontend.rule=Host:${DOMAIN_NAME}"
+
+networks:
+  default:
+  traefik:
+    external: true

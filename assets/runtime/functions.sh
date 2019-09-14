@@ -1,9 +1,7 @@
 #!/bin/bash
-source ${AKAUNTING_RUNTIME_DIR}/env-defaults
+source ${AKAUNTING_RUNTIME_DIR}/env-defaults.sh
 
-AKAUNTING_TEMPLATES_DIR=${AKAUNTING_RUNTIME_DIR}/config
-AKAUNTING_APP_CONFIG=${AKAUNTING_CONFIG_DIR}/.env
-AKAUNTING_NGINX_CONFIG=/etc/nginx/sites-enabled/Akaunting.conf
+AKAUNTING_APP_CONFIG=${AKAUNTING_INSTALL_DIR}/.env
 
 # Compares two version strings `a` and `b`
 # Returns
@@ -75,51 +73,6 @@ artisan_cli() {
   exec_as_akaunting php artisan "$@"
 }
 
-## Copies configuration template in ${AKAUNTING_TEMPLATES_DIR} to the destination as the specified USER
-# $1: ownership of destination file, uses `chown`
-# $2: source file
-# $3: destination location
-# $4: mode of destination, uses `chmod` (default: 0644)
-install_template() {
-  local OWNERSHIP=${1}
-  local SRC=${2}
-  local DEST=${3}
-  local MODE=${4:-0644}
-  if [[ -f ${AKAUNTING_TEMPLATES_DIR}/${SRC} ]]; then
-    cp ${AKAUNTING_TEMPLATES_DIR}/${SRC} ${DEST}
-  fi
-  chmod ${MODE} ${DEST}
-  chown ${OWNERSHIP} ${DEST}
-}
-
-## Replace placeholders with values
-# $1: file with placeholders to replace
-# $x: placeholders to replace
-update_template() {
-  local FILE=${1?missing argument}
-  shift
-
-  [[ ! -f ${FILE} ]] && return 1
-
-  local VARIABLES=($@)
-  local USR=$(stat -c %U ${FILE})
-  local tmp_file=$(mktemp)
-  cp -a "${FILE}" ${tmp_file}
-
-  local variable
-  for variable in ${VARIABLES[@]}; do
-    # Keep the compatibilty: {{VAR}} => ${VAR}
-    sed -ri "s/[{]{2}$variable[}]{2}/\${$variable}/g" ${tmp_file}
-  done
-
-  # Replace placeholders
-  (
-    export ${VARIABLES[@]}
-    local IFS=":"; sudo -HEu ${USR} envsubst "${VARIABLES[*]/#/$}" < ${tmp_file} > ${FILE}
-  )
-  rm -f ${tmp_file}
-}
-
 akaunting_finalize_database_parameters() {
   # is a mysql database linked?
   # requires that the mysql container has exposed port 3306.
@@ -165,25 +118,6 @@ akaunting_finalize_database_parameters() {
   # set default user and database
   DB_USER=${DB_USER:-root}
   DB_NAME=${DB_NAME:-akauntingdb}
-}
-
-akaunting_finalize_php_fpm_parameters() {
-  # is a akaunting-php-fpm container linked?
-  if [[ -n ${PHP_FPM_PORT_9000_TCP_ADDR} ]]; then
-    AKAUNTING_PHP_FPM_HOST=${AKAUNTING_PHP_FPM_HOST:-$PHP_FPM_PORT_9000_TCP_ADDR}
-    AKAUNTING_PHP_FPM_PORT=${AKAUNTING_PHP_FPM_PORT:-$PHP_FPM_PORT_9000_TCP_PORT}
-  fi
-
-  if [[ -z ${AKAUNTING_PHP_FPM_HOST} ]]; then
-    echo
-    echo "ERROR: "
-    echo "  Please configure the php-fpm connection. Aborting..."
-    echo
-    return 1
-  fi
-
-  # use default php-fpm port number if it is still not set
-  AKAUNTING_PHP_FPM_PORT=${AKAUNTING_PHP_FPM_PORT:-9000}
 }
 
 akaunting_check_database_connection() {
@@ -234,14 +168,11 @@ akaunting_upgrade() {
   if [[ -z ${COUNT} || ${COUNT} -eq 0 ]]; then
     echo "Setting up Akaunting for firstrun..."
     artisan_cli install \
+      --locale "${APP_LOCALE}" \
       --db-host "${DB_HOST}" --db-port "${DB_PORT}" \
       --db-name "${DB_NAME}" --db-username "${DB_USER}" --db-password "${DB_PASS}" \
       --company-name "${AKAUNTING_COMPANY_NAME}" --company-email "${AKAUNTING_COMPANY_EMAIL}" \
       --admin-email "${AKAUNTING_ADMIN_EMAIL}" --admin-password "${AKAUNTING_ADMIN_PASSWORD}"
-
-    # move configuration to persistent store and create symlink
-    exec_as_akaunting mv ${AKAUNTING_INSTALL_DIR}/.env ${AKAUNTING_APP_CONFIG}
-    ln -sf ${AKAUNTING_APP_CONFIG} ${AKAUNTING_INSTALL_DIR}/.env
 
     update_version=true
   else
@@ -279,16 +210,6 @@ akaunting_upgrade() {
 akaunting_configure_domain() {
   echo "Configuring Akaunting::URL..."
   php_config_set ${AKAUNTING_APP_CONFIG} APP_URL ${AKAUNTING_URL}
-}
-
-nginx_configure_virtualhost() {
-  echo "Configuring Akaunting virtualhost..."
-  akaunting_finalize_php_fpm_parameters
-  update_template ${AKAUNTING_NGINX_CONFIG} \
-    AKAUNTING_FQDN \
-    AKAUNTING_HTTPS \
-    AKAUNTING_PHP_FPM_HOST \
-    AKAUNTING_PHP_FPM_PORT
 }
 
 backup_dump_database() {
@@ -422,14 +343,6 @@ backup_restore_directory() {
   exec_as_akaunting rm -rf ${AKAUNTING_BACKUPS_DIR}/${dirname}${extension}
 }
 
-install_configuration_templates() {
-  echo "Installing configuration templates..."
-  if [[ -d /etc/nginx/sites-enabled && ! -f ${AKAUNTING_NGINX_CONFIG} ]]; then
-    install_template root: nginx/Akaunting.conf ${AKAUNTING_NGINX_CONFIG} 0644
-    update_template ${AKAUNTING_NGINX_CONFIG} AKAUNTING_INSTALL_DIR
-  fi
-}
-
 initialize_datadir() {
   echo "Initializing datadir..."
   mkdir -p ${AKAUNTING_DATA_DIR}
@@ -450,21 +363,21 @@ initialize_datadir() {
   chown -R ${AKAUNTING_USER}: ${AKAUNTING_CONFIG_DIR}
   chmod -R 0750 ${AKAUNTING_CONFIG_DIR}
 
-  # setup symlink to .env
-  ln -sf ${AKAUNTING_APP_CONFIG} ${AKAUNTING_INSTALL_DIR}/.env
-
   # create backups directory
   mkdir -p ${AKAUNTING_BACKUPS_DIR}
   chmod -R 0755 ${AKAUNTING_BACKUPS_DIR}
   chown -R ${AKAUNTING_USER}: ${AKAUNTING_BACKUPS_DIR}
 }
 
-initialize_system() {
-  initialize_datadir
-  install_configuration_templates
-}
-
 configure_akaunting() {
+  # check to see if it needs to be installed or not
+  if [[ ! -f "${AKAUNTING_INSTALL_DIR}/index.php" ]]; then
+    echo "Installing Akaunting..."
+    akaunting-install
+  fi
+
+  initialize_datadir
+  
   echo "Configuring Akaunting..."
   akaunting_configure_database
   akaunting_upgrade
@@ -473,11 +386,6 @@ configure_akaunting() {
   if [[ -f ${AKAUNTING_APP_CONFIG} ]]; then
     artisan_cli up
   fi
-}
-
-configure_nginx() {
-  echo "Configuring nginx..."
-  nginx_configure_virtualhost
 }
 
 backup_create() {

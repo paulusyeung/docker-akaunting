@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
 ## DEBUGGING
 DEBUG=${DEBUG:-false}
@@ -14,20 +14,13 @@ AKAUNTING_COMPANY_EMAIL=${AKAUNTING_COMPANY_EMAIL:-contact@example.com}
 AKAUNTING_ADMIN_EMAIL=${AKAUNTING_ADMIN_EMAIL:-admin@example.com}
 AKAUNTING_ADMIN_PASSWORD=${AKAUNTING_ADMIN_PASSWORD:-password}
 
-AKAUNTING_URL=${AKAUNTING_URL:-}
-AKAUNTING_URL=${AKAUNTING_URL:-$PHP_FPM_ENV_AKAUNTING_URL}
 AKAUNTING_URL=${AKAUNTING_URL:-http://localhost}
-
-# credits: http://stackoverflow.com/a/2506635/4799938
-AKAUNTING_FQDN=$(sed -e "s/\([^/]*\)\:\/\/\([^@]*@\)\?\([^:/]*\).*/\3/" <<< ${AKAUNTING_URL})
-if [[ $(sed -e "s/\([^/]*\)\:\/\/\([^@]*@\)\?\([^:/]*\).*/\1/" <<< ${AKAUNTING_URL}) == https ]]; then
-  AKAUNTING_HTTPS=${AKAUNTING_HTTPS:-on}
-else
-  AKAUNTING_HTTPS=${AKAUNTING_HTTPS:-off}
-fi
 
 ## BACKUPS
 AKAUNTING_BACKUPS_EXPIRY=${AKAUNTING_BACKUPS_EXPIRY:-0}
+
+## APP
+APP_LOCALE=${APP_LOCALE:-en-GB}
 
 ## DATABASE
 DB_TYPE=${DB_TYPE:-mysql}
@@ -36,7 +29,3 @@ DB_PORT=${DB_PORT:-}
 DB_NAME=${DB_NAME:-}
 DB_USER=${DB_USER:-}
 DB_PASS=${DB_PASS:-}
-
-## PHP_FPM
-AKAUNTING_PHP_FPM_HOST=${AKAUNTING_PHP_FPM_HOST:-}
-AKAUNTING_PHP_FPM_PORT=${AKAUNTING_PHP_FPM_PORT:-}

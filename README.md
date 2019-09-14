@@ -1,6 +1,4 @@
-[![Docker Repository on Quay.io](https://quay.io/repository/sameersbn/akaunting/status "Docker Repository on Quay.io")](https://quay.io/repository/sameersbn/akaunting)
-
-# sameersbn/akaunting:1.3.9
+# gslime/akaunting
 
 - [Introduction](#introduction)
   - [Contributing](#contributing)
@@ -9,6 +7,7 @@
   - [Installation](#installation)
   - [Quickstart](#quickstart)
   - [Persistence](#persistence)
+  - [ACME certs](#acme-certs)
 - [Maintenance](#maintenance)
   - [Creating backups](#creating-backups)
   - [Restoring backups](#restoring-backups)
@@ -20,6 +19,12 @@
 `Dockerfile` to create a [Docker](https://www.docker.com/) container image for [Akaunting](https://akaunting.com/).
 
 Akaunting is a self-hosted open source accounting software.
+
+This is based heavily on the [sameersbn/docker-akaunting](https://github.com/sameersbn/docker-akaunting) repository.
+The first key difference is that I've modified it to be based on Alpine rather than Ubuntu.
+The second key difference is that the Akaunting software is not actually contained in the image, rather it is bootstraped
+by downloading it into a writable volume the first time that the the image is run. This allows the built in updating
+feature of Akaunting to work even though it is running in a container.
 
 ## Contributing
 
@@ -45,86 +50,58 @@ If the above recommendations do not help then [report your issue](../../issues/n
 
 ## Installation
 
-Automated builds of the image are available on [Dockerhub](https://hub.docker.com/r/sameersbn/akaunting) and is the recommended method of installation.
-
-> **Note**: Builds are also available on [Quay.io](https://quay.io/repository/sameersbn/akaunting)
+Automated builds of the image are available on [Dockerhub](https://hub.docker.com/r/gslime/akaunting) and is the recommended method of installation.
 
 ```bash
-docker pull sameersbn/akaunting:1.3.9
+docker pull gslime/akaunting
 ```
 
 Alternatively you can build the image yourself.
 
 ```bash
-docker build -t sameersbn/akaunting github.com/sameersbn/docker-akaunting
+docker build -t gslime/akaunting github.com/kll/docker-akaunting-alpine
 ```
 
 ## Quickstart
 
 The quickest way to start using this image is with [docker-compose](https://docs.docker.com/compose/).
 
-```bash
-wget https://raw.githubusercontent.com/sameersbn/docker-akaunting/master/docker-compose.yml
-```
-
-Update the `AKAUNTING_URL` environment variable in the `docker-compose.yml` file with the url from which Akaunting will be externally accessible.
+Clone the repository.
 
 ```bash
-docker-compose up
+git clone https://github.com/kll/docker-akaunting-alpine.git
 ```
 
-Alternatively, you can start Akaunting manually using the Docker command line.
+Copy the `example.env` file to `.env` and then configure the settings.
+Set the `AKAUNTING_URL` value with the url from which Akaunting will be externally accessible.
 
-Step 1. Launch a MySQL container
+Create the required named docker volumes.
 
 ```bash
-docker run --name akaunting-mysql -itd --restart=always \
-  --env 'DB_NAME=akaunting_db' \
-  --env 'DB_USER=akaunting' --env 'DB_PASS=password' \
-  --volume /srv/docker/akaunting/mysql:/var/lib/mysql \
-  sameersbn/mysql:5.7.24
+docker volume create akaunting_db
+docker volume create akaunting_www
+docker volume create akaunting_data
 ```
 
-Step 2. Launch the Akaunting php-fpm container
+Then bring everything up with docker-compose.
 
 ```bash
-docker run --name akaunting -itd --restart=always \
-  --env AKAUNTING_URL=http://akaunting.example.com:10080 \
-  --link akaunting-mysql:mysql \
-  --volume /srv/docker/akaunting/akaunting:/var/lib/akaunting \
-  sameersbn/akaunting:1.3.9 app:akaunting
+docker-compose up --build
 ```
-
-Step 3. Launch a NGINX frontend container
-
-```bash
-docker run --name akaunting-nginx -itd --restart=always \
-  --link akaunting:php-fpm \
-  --publish 10080:80 \
-  sameersbn/akaunting:1.3.9 app:nginx
-```
-
-Point your browser to `http://akaunting.example.com:10080` and login using the default username and password:
-
-* username: **admin@example.com**
-* password: **password**
-
-> **Note**
->
-> Use the `AKAUNTING_ADMIN_EMAIL` and `AKAUNTING_ADMIN_PASSWORD` variables to create a custom admin user and password on the firstrun instead of the default credentials.
 
 ## Persistence
 
-For Akaunting to preserve its state across container shutdown and startup you should mount a volume at `/var/lib/akaunting`.
+Persistence is achieved through docker volumes. They are created externally from the `docker-compose` file so they can
+be given sensible names for easy identification later. By default they will be located under the `/var/lib/docker/volumes`
+folder on your file system. 
 
-> *The [Quickstart](#quickstart) command already mounts a volume for persistence.*
+> *The [Quickstart](#quickstart) instructions cover creating the appropriate volumes.*
 
-SELinux users should update the security context of the host mountpoint so that it plays nicely with Docker:
+## ACME certs
 
-```bash
-mkdir -p /srv/docker/akaunting
-chcon -Rt svirt_sandbox_file_t /srv/docker/akaunting
-```
+If you already have a working Traefik reverse proxy setup, then you can connect this to it by copying the
+`docker-compose.override.example.yml` file to `docker-compose.override.yml` and editing it as appropriate.
+Installing and configuring Traefik itself is out of the scope of this repository.
 
 # Maintenance
 
@@ -142,7 +119,7 @@ Relaunch the container with the `app:backup:create` argument.
 
 ```bash
 docker run --name akaunting -it --rm [OPTIONS] \
-  sameersbn/akaunting:1.3.9 app:backup:create
+  gslime/akaunting:latest app:backup:create
 ```
 
 The backup will be created in the `backups/` folder of the [Persistent](#persistence) volume. You can change the location using the `AKAUNTING_BACKUPS_DIR` configuration parameter.
@@ -171,7 +148,7 @@ Relaunch the container with the `app:backup:restore` argument. Ensure you launch
 
 ```bash
 docker run --name akaunting -it --rm [OPTIONS] \
-  sameersbn/akaunting:1.3.9 app:backup:restore
+  gslime/akaunting:latest app:backup:restore
 ```
 
 A list of existing backups will be displayed. Select a backup you wish to restore.
@@ -180,43 +157,17 @@ To avoid this interaction you can specify the backup filename using the `BACKUP`
 
 ```bash
 docker run --name akaunting -it --rm [OPTIONS] \
-  sameersbn/akaunting:1.3.9 app:backup:restore BACKUP=1417624827_akaunting_backup.tar
+  gslime/akaunting:latest app:backup:restore BACKUP=1417624827_akaunting_backup.tar
 ```
 
 ## Upgrading
 
-To upgrade to newer releases:
-
-  1. Download the updated Docker image:
-
-  ```bash
-  docker pull sameersbn/akaunting:1.3.9
-  ```
-
-  2. Stop the currently running image:
-
-  ```bash
-  docker stop akaunting
-  ```
-
-  3. Remove the stopped container
-
-  ```bash
-  docker rm -v akaunting
-  ```
-
-  4. Start the updated image
-
-  ```bash
-  docker run -name akaunting -itd \
-    [OPTIONS] \
-    sameersbn/akaunting:1.3.9
-  ```
+To upgrade to newer releases, use the built in [One-Click Update feature](https://akaunting.com/docs/update).
 
 ## Shell Access
 
 For debugging and maintenance purposes you may want access the containers shell. If you are using Docker version `1.3.0` or higher you can access a running containers shell by starting `bash` using `docker exec`:
 
 ```bash
-docker exec -it akaunting bash
+docker-compose exec -it akaunting bash
 ```
