@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     image: mariadb:latest
     volumes:
-      - /srv/www/${VIRTUAL_HOST}/db_data:/var/lib/mysql
+      - /srv/${VIRTUAL_HOST}/db_data:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_USER=${DB_USER}
@@ -51,9 +51,9 @@ services:
     depends_on:
       - db
     volumes:
-      - /srv/www/${VIRTUAL_HOST}/sock:/sock
-      - /srv/www/${VIRTUAL_HOST}/ak_data:/var/lib/akaunting
-      - /srv/www/${VIRTUAL_HOST}/ak_www:/var/www/akaunting
+      - /srv/${VIRTUAL_HOST}/sock:/sock
+      - /srv/${VIRTUAL_HOST}/ak_data:/var/lib/akaunting
+      - /srv/${VIRTUAL_HOST}/ak_www:/var/www/akaunting
 
   nginx:
     container_name: $NGINX_CONTAINER
@@ -62,8 +62,8 @@ services:
     depends_on:
       - akaunting
     volumes:
-      - /srv/www/${VIRTUAL_HOST}/sock:/sock
-      - /srv/www/${VIRTUAL_HOST}/ak_www:/var/www/akaunting:ro
+      - /srv/${VIRTUAL_HOST}/sock:/sock
+      - /srv/${VIRTUAL_HOST}/ak_www:/var/www/akaunting:ro
       - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - ${VIRTUAL_PORT}:80
