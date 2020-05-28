@@ -62,7 +62,7 @@ services:
     depends_on:
       - akaunting
     volumes:
-      - sock:/sock
+      - /srv/www/${VIRTUAL_HOST}/sock:/sock
       - /srv/www/${VIRTUAL_HOST}/ak_www:/var/www/akaunting:ro
       - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
