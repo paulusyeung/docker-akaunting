@@ -1,62 +1,69 @@
 version: '3.7'
 
 services:
-  mysql:
+  db:
+    container_name: $DB_CONTAINER
     restart: unless-stopped
-    image: mysql:5.7
-    environment:
-    - MYSQL_ROOT_PASSWORD=${DB_PASS}
-    - MYSQL_USER=${DB_USER}
-    - MYSQL_PASSWORD=${DB_PASS}
-    - MYSQL_DATABASE=${DB_NAME}
+    image: mariadb:latest
     volumes:
-    - akaunting_db:/var/lib/mysql
+      - /srv/www/${VIRTUAL_HOST}/db_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASS}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=${DB_NAME}
+
+  # phpMyAdmin is optional
+  pma:
+    container_name: $PMA_CONTAINER
+    image: phpmyadmin/phpmyadmin
+    depends_on:
+      - db
+    restart: always
+    ports:
+      - ${PMA_VIRTUAL_PORT}:80
+    environment:
+      PMA_HOST: $DB_CONTAINER
+      MYSQL_ROOT_PASSWORD: $PMA_ROOT_PASSWORD
 
   akaunting:
+    container_name: $AKAUNTING_CONTAINER
     restart: unless-stopped
     image: gslime/akaunting-alpine
     command: app:akaunting
     environment:
-    - DEBUG=false
-    - TZ=${TZ}
+      - DEBUG=false
+      - TZ=${TZ}
 
-    - APP_LOCALE=${APP_LOCALE}
+      - APP_LOCALE=${APP_LOCALE}
 
-    - DB_HOST=mysql
-    - DB_USER=${DB_USER}
-    - DB_PASS=${DB_PASS}
-    - DB_NAME=${DB_NAME}
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
 
-    - AKAUNTING_URL=${AKAUNTING_URL}
-    - AKAUNTING_COMPANY_NAME=${AKAUNTING_COMPANY_NAME}
-    - AKAUNTING_COMPANY_EMAIL=${AKAUNTING_COMPANY_EMAIL}
-    - AKAUNTING_ADMIN_EMAIL=${AKAUNTING_ADMIN_EMAIL}
-    - AKAUNTING_ADMIN_PASSWORD=${AKAUNTING_ADMIN_PASSWORD}
-    - AKAUNTING_BACKUPS_EXPIRY=${AKAUNTING_BACKUPS_EXPIRY}
+      - AKAUNTING_URL=${AKAUNTING_URL}
+      - AKAUNTING_COMPANY_NAME=${AKAUNTING_COMPANY_NAME}
+      - AKAUNTING_COMPANY_EMAIL=${AKAUNTING_COMPANY_EMAIL}
+      - AKAUNTING_ADMIN_EMAIL=${AKAUNTING_ADMIN_EMAIL}
+      - AKAUNTING_ADMIN_PASSWORD=${AKAUNTING_ADMIN_PASSWORD}
+      - AKAUNTING_BACKUPS_EXPIRY=${AKAUNTING_BACKUPS_EXPIRY}
     depends_on:
-    - mysql
+      - db
     volumes:
-      - sock:/sock
-      - akaunting_data:/var/lib/akaunting
-      - akaunting_www:/var/www/akaunting
+      - /srv/www/${VIRTUAL_HOST}/sock:/sock
+      - /srv/www/${VIRTUAL_HOST}/ak_data:/var/lib/akaunting
+      - /srv/www/${VIRTUAL_HOST}/ak_www:/var/www/akaunting
 
   nginx:
+    container_name: $NGINX_CONTAINER
     restart: unless-stopped
     image: nginx:1-alpine
     depends_on:
-    - akaunting
+      - akaunting
     volumes:
       - sock:/sock
-      - akaunting_www:/var/www/akaunting:ro
+      - /srv/www/${VIRTUAL_HOST}/ak_www:/var/www/akaunting:ro
       - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-    - "10080:80"
-
-volumes:
-  akaunting_db:
-    external: true
-  akaunting_www:
-    external: true
-  akaunting_data:
-    external: true
-  sock:
+      - ${VIRTUAL_PORT}:80
