@@ -12,19 +12,21 @@ services:
       - MYSQL_USER=${DB_USER}
       - MYSQL_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=${DB_NAME}
-
-  # phpMyAdmin is optional
-  pma:
-    container_name: $PMA_CONTAINER
-    image: phpmyadmin/phpmyadmin
-    depends_on:
-      - db
-    restart: always
     ports:
-      - ${PMA_VIRTUAL_PORT}:80
-    environment:
-      PMA_HOST: $DB_CONTAINER
-      MYSQL_ROOT_PASSWORD: $PMA_ROOT_PASSWORD
+      - ${DB_PORT}:3306
+
+  # phpMyAdmin is optional, un-comment to install it.
+  #pma:
+  #  container_name: $PMA_CONTAINER
+  #  image: phpmyadmin/phpmyadmin
+  #  depends_on:
+  #    - db
+  #  restart: always
+  #  ports:
+  #    - ${PMA_VIRTUAL_PORT}:80
+  #  environment:
+  #    PMA_HOST: $DB_CONTAINER
+  #    MYSQL_ROOT_PASSWORD: $PMA_ROOT_PASSWORD
 
   akaunting:
     container_name: $AKAUNTING_CONTAINER
@@ -64,6 +66,6 @@ services:
     volumes:
       - /srv/${VIRTUAL_HOST}/sock:/sock
       - /srv/${VIRTUAL_HOST}/ak_www:/var/www/akaunting:ro
-      - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /srv/${VIRTUAL_HOST}/assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - ${VIRTUAL_PORT}:80
