@@ -14,19 +14,8 @@ services:
       - MYSQL_DATABASE=${DB_NAME}
     ports:
       - ${DB_PORT}:3306
-
-  # phpMyAdmin is optional, un-comment to install it.
-  #pma:
-  #  container_name: $PMA_CONTAINER
-  #  image: phpmyadmin/phpmyadmin
-  #  depends_on:
-  #    - db
-  #  restart: always
-  #  ports:
-  #    - ${PMA_VIRTUAL_PORT}:80
-  #  environment:
-  #    PMA_HOST: $DB_CONTAINER
-  #    MYSQL_ROOT_PASSWORD: $PMA_ROOT_PASSWORD
+    networks:
+      - lan
 
   akaunting:
     container_name: $AKAUNTING_CONTAINER
@@ -39,7 +28,7 @@ services:
 
       - APP_LOCALE=${APP_LOCALE}
 
-      - DB_HOST=db
+      - DB_HOST=${DB_CONTAINER}
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
       - DB_NAME=${DB_NAME}
@@ -56,6 +45,8 @@ services:
       - /srv/${VIRTUAL_HOST}/sock:/sock
       - /srv/${VIRTUAL_HOST}/ak_data:/var/lib/akaunting
       - /srv/${VIRTUAL_HOST}/ak_www:/var/www/akaunting
+    networks:
+      - lan
 
   nginx:
     container_name: $NGINX_CONTAINER
@@ -69,3 +60,10 @@ services:
       - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - ${VIRTUAL_PORT}:80
+    networks:
+      - lan
+
+networks:
+  lan:
+    name: $VIRTUAL_NETWORK
+    driver: bridge
