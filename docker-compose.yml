@@ -69,6 +69,7 @@ volumes:
     name: $AKAUNTING_DATA_VOL
   aka_www:
     name: $AKAUNTING_WWW_VOL
+  sock:
 
 networks:
   lan:
