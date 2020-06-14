@@ -1,12 +1,12 @@
 version: '3.7'
 
 services:
-  db:
+  myslq:
     container_name: $DB_CONTAINER
     restart: unless-stopped
     image: mariadb:latest
     volumes:
-      - aka_db:/var/lib/mysql
+      - db:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_USER=${DB_USER}
@@ -28,7 +28,7 @@ services:
 
       - APP_LOCALE=${APP_LOCALE}
 
-      - DB_HOST=db
+      - DB_HOST=mysql
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
       - DB_NAME=${DB_NAME}
@@ -40,11 +40,11 @@ services:
       - AKAUNTING_ADMIN_PASSWORD=${AKAUNTING_ADMIN_PASSWORD}
       - AKAUNTING_BACKUPS_EXPIRY=${AKAUNTING_BACKUPS_EXPIRY}
     depends_on:
-      - db
+      - mysql
     volumes:
       - sock:/sock
-      - aka_data:/var/lib/akaunting
-      - aka_www:/var/www/akaunting
+      - data:/var/lib/akaunting
+      - www:/var/www/akaunting
     networks:
       - lan
 
@@ -56,19 +56,16 @@ services:
       - akaunting
     volumes:
       - sock:/sock
-      - aka_www:/var/www/akaunting:ro
+      - www:/var/www/akaunting:ro
       - ./assets/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - ${VIRTUAL_PORT}:80
     networks:
       - lan
 volumes:
-  aka_db:
-    name: $DB_VOL
-  aka_data:
-    name: $AKAUNTING_DATA_VOL
-  aka_www:
-    name: $AKAUNTING_WWW_VOL
+  db:
+  data:
+  www:
   sock:
 
 networks:
