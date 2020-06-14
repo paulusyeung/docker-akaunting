@@ -1,7 +1,7 @@
 version: '3.7'
 
 services:
-  myslq:
+  mysql:
     container_name: $DB_CONTAINER
     restart: unless-stopped
     image: mariadb:latest
